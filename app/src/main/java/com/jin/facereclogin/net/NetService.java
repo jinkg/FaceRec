@@ -23,7 +23,6 @@ public class NetService {
     public static final String GET_PERSON_SUB = "/People/people_get";
     public static final String ADD_FACE_SUB = "/person/add_face";
     public static final String VERIFY_SUB = "/face/Match/match_verify";
-    public static final String TRAIN_SUB = "/train/verify";
 
     public static String GET_GROUP_LIST_URL;
     public static String DETECT_URL;
@@ -31,7 +30,6 @@ public class NetService {
     public static String GET_PERSON_URL;
     public static String ADD_FACE_URL;
     public static String VERIFY_URL;
-    public static String TRAIN_URL;
 
     private static void init() {
         GET_GROUP_LIST_URL = BASE_URL + GET_GROUP_LIST_SUB;
@@ -40,7 +38,6 @@ public class NetService {
         GET_PERSON_URL = BASE_URL + GET_PERSON_SUB;
         ADD_FACE_URL = BASE_URL + ADD_FACE_SUB;
         VERIFY_URL = BASE_URL + VERIFY_SUB;
-        TRAIN_URL = BASE_URL + TRAIN_SUB;
     }
 
     public static Map<String, String> getGroupList() {
@@ -112,11 +109,4 @@ public class NetService {
         return sb.toString();
     }
 
-    public static Map<String, String> train(String personName) {
-        ArrayMap params = new ArrayMap();
-        params.put("app_id", Constants.API_ID);
-        params.put("app_key", Constants.API_KEY);
-        params.put("people_name", personName);
-        return params;
-    }
 }

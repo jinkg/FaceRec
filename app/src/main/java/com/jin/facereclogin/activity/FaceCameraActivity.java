@@ -1,3 +1,4 @@
+
 // Copyright (c) Philipp Wagner. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
@@ -17,6 +18,7 @@ import android.hardware.Camera;
 import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.OrientationEventListener;
@@ -47,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -56,7 +59,7 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
     private static final int ENROLL_FACE_COUNT = 3;
     public static final int ENROLL = 1;
     public static final int VERIFY = 2;
-    private static final int TIMER_DELAY = 500;
+    private static final int RADOM_DELAY = 1500;
     private static final String NAME_KEY = "name";
     private static final String TYPE_KEY = "type";
 
@@ -77,8 +80,6 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
 
     private String mName;
     private int mType;
-
-    private Timer mTimer;
 
     public static void enroll(Activity activity, String name) {
         Intent intent = new Intent(activity, FaceCameraActivity.class);
@@ -144,10 +145,6 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                 releaseCameraAndPreview();
                 mCamera = Camera.open(id);
                 qOpened = (mCamera != null);
-                if (mTimer == null) {
-                    mTimer = new Timer();
-                    mTimer.schedule(new CameraTimerTask(), 0, TIMER_DELAY);
-                }
             } catch (Exception e) {
                 Log.e(getString(R.string.app_name), "failed to open Camera");
                 e.printStackTrace();
@@ -161,10 +158,6 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
         synchronized (this) {
             mPreview.setCamera(null, null);
             if (mCamera != null) {
-                if (mTimer != null) {
-                    mTimer.cancel();
-                    mTimer = null;
-                }
                 mCamera.release();
                 mCamera = null;
             }
@@ -210,8 +203,8 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                     @Override
                     public void onResponse(Object response) {
                         Log.d(TAG, "create person success");
-                        train();
                         setResult(RESULT_OK);
+                        finish();
                     }
                 },
                 new Response.ErrorListener() {
@@ -226,28 +219,6 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
         requestQueue.add(request);
     }
 
-    private void train() {
-        RequestQueue requestQueue = RequestQueueHelper.getInstance(getApplicationContext());
-        final IDsManagerPostRequest<BaseResponse> request = new IDsManagerPostRequest<>(NetService.TRAIN_URL, BaseResponse.class, NetService.train(mName),
-                new Response.Listener() {
-                    @Override
-                    public void onResponse(Object response) {
-                        Log.d(TAG, "train post success");
-                        dismissLoading();
-                        finish();
-                    }
-                },
-                new Response.ErrorListener() {
-                    @Override
-                    public void onErrorResponse(VolleyError error) {
-                        Log.d(TAG, "train post failed");
-                        dismissLoading();
-                        finish();
-                    }
-                }
-        );
-        requestQueue.add(request);
-    }
 
     private void verify(String faceId) {
         showLoading();
@@ -300,7 +271,7 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-
+                        initFrame();
                     }
                 }
         );
@@ -316,8 +287,9 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                     faceIds.add(rst.face.get(0).face_id);
                     if (faceIds.size() >= ENROLL_FACE_COUNT) {
                         createPerson();
+                    } else {
+                        showProgressDialog(faceIds.size());
                     }
-                    showProgressDialog(faceIds.size());
                     break;
                 case VERIFY:
                     verify(rst.face.get(0).face_id);
@@ -325,6 +297,7 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
             }
         } else {
             Log.d(TAG, "no face....");
+            initFrame();
         }
     }
 
@@ -384,6 +357,7 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                 .setPositiveButton(getString(R.string.confirm), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        initFrame();
                     }
                 }).create();
         dialog.show();
@@ -395,11 +369,7 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
                 .setPositiveButton(getString(R.string.confirm), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        synchronized (this) {
-                            if (mCamera != null) {
-                                mCamera.setOneShotPreviewCallback(FaceCameraActivity.this);
-                            }
-                        }
+                        initFrame();
                     }
                 }).create();
         dialog.show();
@@ -416,15 +386,18 @@ public class FaceCameraActivity extends BaseLoadNoRevealActivity implements Came
         sendBroadcast(homeIntent);
     }
 
-    class CameraTimerTask extends TimerTask {
-        @Override
-        public void run() {
-            synchronized (this) {
-                if (mCamera != null) {
-                    mCamera.setOneShotPreviewCallback(FaceCameraActivity.this);
-                }
+    void initFrame() {
+        synchronized (this) {
+            if (mCamera != null) {
+                Random random = new Random();
+                long delay = random.nextInt(1500);
+                Log.d(TAG, "delay frame is : " + delay);
+                new Handler().postDelayed(new Runnable() {
+                    public void run() {
+                        mCamera.setOneShotPreviewCallback(FaceCameraActivity.this);
+                    }
+                }, delay);
             }
         }
     }
-
 }
